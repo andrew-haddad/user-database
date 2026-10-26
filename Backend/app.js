@@ -5,6 +5,7 @@ const express = require('express')
 const cors = require ('cors')
 const dotenv = require('dotenv')
 const bcrypt = require('bcrypt');
+const session = require('express-session');
 dotenv.config()
 
 const app = express();
@@ -12,9 +13,22 @@ const app = express();
 const dbService = require('./dbService');
 
 
-app.use(cors());
+app.use(cors({
+    origin: 'http://localhost',
+    credentials: true
+}));
 app.use(express.json())
 app.use(express.urlencoded({extended: false}));
+
+app.use(session({
+    secret: process.env.SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+        httpOnly: true,
+        sameSite: 'lax'
+    }
+}));
 
 app.post('/register', async (request, response) => {
     try {
@@ -112,7 +126,7 @@ app.post('/login', async (request, response) => {
         if (!user) {
             return response.status(401).json({
                 success: false,
-                meesage: 'Invalid username or password.'
+                message: 'Invalid username or password.'
             });
         }
 
@@ -126,6 +140,7 @@ app.post('/login', async (request, response) => {
         }
 
         await db.updateSignInTime(username);
+        request.session.username = username;
 
         return response.status(200).json({
             success: true,
@@ -140,6 +155,38 @@ app.post('/login', async (request, response) => {
             message: 'Login failed.'
         });
     }
+});
+
+app.get('/session', (request, response) => {
+    if (request.session.username) {
+        return response.json({
+            authenticated: true,
+            username: request.session.username
+        });
+    } else {
+        return response.json({
+            authenticated: false
+        });
+    }
+});
+
+app.post('/logout', (request, response) => {
+    request.session.destroy((error) => {
+        if (error) {
+            console.error(error);
+            return response.status(500).json({
+                success: false,
+                message: 'Logout failed.'
+            });
+        }
+
+        response.clearCookie('connect.sid');
+
+        return response.json({
+            success: true,
+            message: 'Logged out successfully.'
+        });
+    });
 });
 
 // create

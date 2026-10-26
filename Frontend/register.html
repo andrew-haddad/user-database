@@ -1,0 +1,43 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link rel="stylesheet" href="stylesheet.css">
+  <title>Account Registration</title>
+</head>
+<body>
+  <main>
+        <h1>Create Account</h1>
+        <p>Enter your registration information</p>
+
+        <form id="register-form">
+            <label for="firstname">First name:</label>
+            <input type="text" id="firstname" required>
+
+            <label for="lastname">Last name:</label>
+            <input type="text" id="lastname" required>
+
+            <label for="username">Username:</label>
+            <input type="text" id="username" required>
+
+            <label for="password">Password:</label>
+            <input type="password" id="password" required>
+
+            <label for="age">Age:</label>
+            <input type="number" id="age" min="0" required>
+
+            <label for="salary">Salary:</label>
+            <input type="number" id="salary" min="0" step="0.01" required>
+
+            <button type="submit">Create Account</button>
+        </form>
+
+        <p id="message"></p>
+
+        <p>Already have an account? <a href="index.html">Sign in</a></p>
+
+</main>
+<script src="register.js"></script>
+</body>
+</html>
