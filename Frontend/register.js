@@ -32,16 +32,16 @@ registerForm.addEventListener('submit', async (event) => {
         message.textContent = data.message;
 
         if (response.ok) {
-            message.style.color = 'green';
+            message.className = 'ok';
         }
         else {
-            message.style.color = 'red';
+            message.className = 'error';
         }
 
 
     } catch (error) {
         console.error(error);
         message.textContent = 'Unable to reach server.';
-        message.style.color = 'red';
+        message.className = 'error';
     }
 });

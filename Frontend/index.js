@@ -30,12 +30,12 @@ loginForm.addEventListener('submit', async (event) => {
         }
         else {
             message.textContent = data.message;
-            message.style.color = 'red';
+            message.className = 'error';
         }
     } catch (error) {
         console.error(error);
         message.textContent = 'Unable to reach server.';
-        message.style.color = 'red';
+        message.className = 'error';
     }
 });
 

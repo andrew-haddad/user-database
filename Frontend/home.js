@@ -46,7 +46,7 @@ const COLUMNS = ['username', 'firstname', 'lastname', 'salary', 'age', 'register
 
 function showMessage(text, isError) {
     statusMessage.textContent = text;
-    statusMessage.style.color = isError ? 'red' : 'green';
+    statusMessage.className = isError ? 'error' : 'ok';
 }
 
 // Builds the table with textContent (never innerHTML), so stored data can't inject HTML/script.
