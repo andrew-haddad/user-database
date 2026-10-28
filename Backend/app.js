@@ -8,6 +8,11 @@ const bcrypt = require('bcrypt');
 const session = require('express-session');
 dotenv.config()
 
+if (!process.env.SESSION_SECRET) {
+    console.error('Missing SESSION_SECRET. Copy dotenv.example to .env and fill it in.');
+    process.exit(1);
+}
+
 const app = express();
 
 const dbService = require('./dbService');
@@ -189,131 +194,136 @@ app.post('/logout', (request, response) => {
     });
 });
 
-// create
-app.post('/insert', (request, response) => {
-    console.log("app: insert a row.");
-    // console.log(request.body); 
+// ---------------------------------------------------------------------------
+// Search services (features 3-10). All require a signed-in session and all
+// return { success: true, data: [...] }. Inputs are validated here and then
+// passed to dbService as bound parameters, never glued into SQL text.
+// ---------------------------------------------------------------------------
 
-    const {name} = request.body;
-    const db = dbService.getDbServiceInstance();
+function requireAuth(request, response, next) {
+    if (!request.session.username) {
+        return response.status(401).json({
+            success: false,
+            message: 'Please sign in first.'
+        });
+    }
+    next();
+}
 
-    const result = db.insertNewName(name);
- 
-    // note that result is a promise
-    result 
-    .then(data => response.json({data: data})) // return the newly added row to frontend, which will show it
-   // .then(data => console.log({data: data})) // debug first before return by response
-   .catch(err => console.log(err));
-});
+// Wraps an async handler so any database error becomes a clean 500 response.
+function handler(fn) {
+    return async (request, response) => {
+        try {
+            const data = await fn(request, response);
+            // if the handler already sent an error response, do not send a second one
+            if (!response.headersSent) {
+                response.json({ success: true, data: data });
+            }
+        } catch (error) {
+            console.error(error);
+            response.status(500).json({ success: false, message: 'Search failed.' });
+        }
+    };
+}
 
+// Blank / missing -> null (meaning "no filter"); otherwise a trimmed string.
+function textOrNull(value) {
+    if (typeof value !== 'string' || value.trim() === '') return null;
+    return value.trim();
+}
 
+// Blank -> null; a valid non-negative number -> number; anything else -> undefined (invalid).
+function numberOrNull(value) {
+    if (value === undefined || value === null || String(value).trim() === '') return null;
+    const n = Number(value);
+    return Number.isFinite(n) && n >= 0 ? n : undefined;
+}
 
+function badRequest(response, message) {
+    response.status(400).json({ success: false, message: message });
+}
 
-// read 
-app.get('/getAll', (request, response) => {
-    
-    const db = dbService.getDbServiceInstance();
+const db = () => dbService.getDbServiceInstance();
 
-    
-    const result =  db.getAllData(); // call a DB function
+// 3. search by first and/or last name
+app.get('/search/name', requireAuth, handler(async (request, response) => {
+    const firstname = textOrNull(request.query.firstname);
+    const lastname = textOrNull(request.query.lastname);
+    if (firstname === null && lastname === null) {
+        return badRequest(response, 'Enter a first name, a last name, or both.');
+    }
+    return db().searchByName(firstname, lastname);
+}));
 
-    result
-    .then(data => response.json({data: data}))
-    .catch(err => console.log(err));
-});
+// 4. search by userid
+app.get('/search/username', requireAuth, handler(async (request, response) => {
+    const username = textOrNull(request.query.username);
+    if (username === null) return badRequest(response, 'Enter a username.');
+    return db().searchByUsername(username);
+}));
 
+// 5. salary between X and Y
+app.get('/search/salary', requireAuth, handler(async (request, response) => {
+    const min = numberOrNull(request.query.min);
+    const max = numberOrNull(request.query.max);
+    if (min === undefined || max === undefined) {
+        return badRequest(response, 'Salary must be a non-negative number.');
+    }
+    if (min === null && max === null) return badRequest(response, 'Enter a minimum, a maximum, or both.');
+    if (min !== null && max !== null && min > max) {
+        return badRequest(response, 'Minimum salary cannot be greater than the maximum.');
+    }
+    return db().searchBySalaryRange(min, max);
+}));
 
-app.get('/search/:name', (request, response) => { // we can debug by URL
-    
-    const {name} = request.params;
-    
-    console.log(name);
+// 6. age between X and Y
+app.get('/search/age', requireAuth, handler(async (request, response) => {
+    const min = numberOrNull(request.query.min);
+    const max = numberOrNull(request.query.max);
+    if (min === undefined || max === undefined) {
+        return badRequest(response, 'Age must be a non-negative number.');
+    }
+    if (min === null && max === null) return badRequest(response, 'Enter a minimum, a maximum, or both.');
+    if (min !== null && max !== null && min > max) {
+        return badRequest(response, 'Minimum age cannot be greater than the maximum.');
+    }
+    return db().searchByAgeRange(min, max);
+}));
 
-    const db = dbService.getDbServiceInstance();
+// 7. registered after <username> registered
+app.get('/search/registered-after', requireAuth, handler(async (request, response) => {
+    const username = textOrNull(request.query.username);
+    if (username === null) return badRequest(response, 'Enter a username.');
+    if (!(await db().getUserByUsername(username))) {
+        return response.status(404).json({ success: false, message: `User "${username}" does not exist.` });
+    }
+    return db().searchRegisteredAfter(username);
+}));
 
-    let result;
-    if(name === "all") // in case we want to search all
-       result = db.getAllData()
-    else 
-       result =  db.searchByName(name); // call a DB function
+// 8. never signed in
+app.get('/search/never-signed-in', requireAuth, handler(async () => {
+    return db().searchNeverSignedIn();
+}));
 
-    result
-    .then(data => response.json({data: data}))
-    .catch(err => console.log(err));
-});
+// 9. registered on the same day as <username>
+app.get('/search/same-day', requireAuth, handler(async (request, response) => {
+    const username = textOrNull(request.query.username);
+    if (username === null) return badRequest(response, 'Enter a username.');
+    if (!(await db().getUserByUsername(username))) {
+        return response.status(404).json({ success: false, message: `User "${username}" does not exist.` });
+    }
+    return db().searchSameDay(username);
+}));
 
-
-// update
-app.patch('/update', 
-     (request, response) => {
-          console.log("app: update is called");
-          //console.log(request.body);
-          const{id, name} = request.body;
-          console.log(id);
-          console.log(name);
-          const db = dbService.getDbServiceInstance();
-
-          const result = db.updateNameById(id, name);
-
-          result.then(data => response.json({success: true}))
-          .catch(err => console.log(err)); 
-
-     }
-);
-
-// delete service
-app.delete('/delete/:id', 
-     (request, response) => {     
-        const {id} = request.params;
-        console.log("delete");
-        console.log(id);
-        const db = dbService.getDbServiceInstance();
-
-        const result = db.deleteRowById(id);
-
-        result.then(data => response.json({success: true}))
-        .catch(err => console.log(err));
-     }
-)   
-
-// debug function, will be deleted later
-app.post('/debug', (request, response) => {
-    // console.log(request.body); 
-
-    const {debug} = request.body;
-    console.log(debug);
-
-    return response.json({success: true});
-});   
-
-// debug function: use http://localhost:5050/testdb to try a DB function
-// should be deleted finally
-app.get('/testdb', (request, response) => {
-    
-    const db = dbService.getDbServiceInstance();
-
-    
-    const result =  db.deleteById("14"); // call a DB function here, change it to the one you want
-
-    result
-    .then(data => response.json({data: data}))
-    .catch(err => console.log(err));
-});
+// 10. registered today
+app.get('/search/today', requireAuth, handler(async () => {
+    return db().searchRegisteredToday();
+}));
 
 
 // set up the web server listener
-// if we use .env to configure
-/*
-app.listen(process.env.PORT, 
+app.listen(process.env.PORT || 5050,
     () => {
-        console.log("I am listening on the configured port " + process.env.PORT)
-    }
-);
-*/
-
-// if we configure here directly
-app.listen(5050, 
-    () => {
-        console.log("I am listening on the fixed port 5050.")
+        console.log("I am listening on port " + (process.env.PORT || 5050));
     }
 );

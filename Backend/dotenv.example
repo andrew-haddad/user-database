@@ -1,0 +1,8 @@
+PORT=5050
+DB_USER=root
+PASSWORD=
+DATABASE=web_app
+DB_PORT=3306
+HOST=localhost
+# any long random string; used to sign the login session cookie
+SESSION_SECRET=change-this-to-a-long-random-string
