@@ -1,6 +1,5 @@
--- sql.txt : all SQL used by the project (MySQL).
--- "?" is a bound parameter: the mysql library sends the value separately from the SQL text,
--- so user input can never change the structure of the query (prevents SQL injection).
+-- SQL queries used in the project
+-- ? represents a parameter passed from the backend
 
 -- Table
 CREATE TABLE IF NOT EXISTS Users(
@@ -18,8 +17,8 @@ CREATE TABLE IF NOT EXISTS Users(
 INSERT INTO Users (username, password_hash, firstname, lastname, salary, age, registerday, signintime)
 VALUES (?, ?, ?, ?, ?, ?, CURDATE(), NULL);
 
--- 2. User sign-in: look the user up by username only, then compare the password with the
---    stored bcrypt hash in Node (bcrypt.compare). The password is never put in SQL.
+-- 2. User sign-in
+-- password verification handled in backend
 SELECT * FROM Users WHERE username = ?;
 UPDATE Users SET signintime = NOW() WHERE username = ?;
 
@@ -42,7 +41,7 @@ SELECT username, firstname, lastname, salary, age, registerday, signintime FROM 
 WHERE (? IS NULL OR age >= ?)
   AND (? IS NULL OR age <= ?);
 
--- 7. Users who registered after john registered (john = the userid typed in)
+-- 7. Users who registered after a chosen username signed in
 SELECT username, firstname, lastname, salary, age, registerday, signintime FROM Users
 WHERE registerday > (SELECT registerday FROM Users WHERE username = ?);
 
@@ -50,7 +49,7 @@ WHERE registerday > (SELECT registerday FROM Users WHERE username = ?);
 SELECT username, firstname, lastname, salary, age, registerday, signintime FROM Users
 WHERE signintime IS NULL;
 
--- 9. Users who registered on the same day as john (john himself is excluded)
+-- 9. Users who registered on the same day as a chosen username
 SELECT username, firstname, lastname, salary, age, registerday, signintime FROM Users
 WHERE registerday = (SELECT registerday FROM Users WHERE username = ?)
   AND username <> ?;

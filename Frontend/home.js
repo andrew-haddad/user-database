@@ -35,9 +35,7 @@ logoutButton.addEventListener('click', async () => {
     }
 });
 
-// ---------------------------------------------------------------------------
-// Search forms (features 3-10)
-// ---------------------------------------------------------------------------
+// search forms
 
 const API = 'http://localhost:5050';
 const resultsBody = document.querySelector('#table-body');
@@ -49,7 +47,6 @@ function showMessage(text, isError) {
     statusMessage.className = isError ? 'error' : 'ok';
 }
 
-// Builds the table with textContent (never innerHTML), so stored data can't inject HTML/script.
 function renderTable(rows) {
     resultsBody.replaceChildren();
     for (const row of rows) {
@@ -63,7 +60,6 @@ function renderTable(rows) {
     }
 }
 
-// Calls one search endpoint and shows the result or the server's error message.
 async function runSearch(path, params) {
     const query = new URLSearchParams(params).toString();
     try {
@@ -89,7 +85,6 @@ async function runSearch(path, params) {
     }
 }
 
-// Connects a form to an endpoint. getParams reads the form's inputs when it is submitted.
 function wireForm(formId, path, getParams) {
     document.querySelector(formId).addEventListener('submit', (event) => {
         event.preventDefault();

@@ -1,8 +1,6 @@
-// database services, accessible through DbService methods.
-
 const mysql = require('mysql');
 const dotenv = require('dotenv');
-dotenv.config(); // read from .env file
+dotenv.config();
 
 let instance = null;
 
@@ -18,19 +16,18 @@ connection.connect((err) => {
      if (err) {
         console.log(err.message);
      }
-     console.log('db ' + connection.state); // to see if the DB is connected or not
+     console.log('db ' + connection.state);
 });
 
-// Columns returned by every search. password_hash is deliberately NOT included.
-// Dates are formatted in SQL so the browser never shifts a day because of time zones.
+// columns used in search results, excluding passwords
+// formatted dates to avoid timezone issues
 const SAFE_COLUMNS = `
     username, firstname, lastname, salary, age,
     DATE_FORMAT(registerday, '%Y-%m-%d') AS registerday,
     DATE_FORMAT(signintime, '%Y-%m-%d %H:%i:%s') AS signintime
 `;
 
-// Runs a query with bound parameters ("?") and returns a promise of the rows.
-// User input is never concatenated into the SQL text, which is what prevents SQL injection.
+// runs sql queries with parameters
 function runQuery(sql, params = []) {
     return new Promise((resolve, reject) => {
         connection.query(sql, params, (err, results) => {
@@ -41,12 +38,12 @@ function runQuery(sql, params = []) {
 }
 
 class DbService {
-    static getDbServiceInstance() { // only one instance is sufficient
+    static getDbServiceInstance() {
         if (!instance) instance = new DbService();
         return instance;
     }
 
-    // ---- 1. registration / 2. sign-in -------------------------------------------------
+    // registration and login
 
     registerUser(username, passwordHash, firstname, lastname, salary, age) {
         const sql = `
@@ -66,8 +63,8 @@ class DbService {
         return runQuery('UPDATE Users SET signintime = NOW() WHERE username = ?', [username]);
     }
 
-    // ---- 3. search by first and/or last name -------------------------------------------
-    // A blank field is passed as null and ignored by the (? IS NULL OR ...) test.
+    // search by first and/or last name
+    // null values are ignored in search filters
     searchByName(firstname, lastname) {
         const sql = `
             SELECT ${SAFE_COLUMNS} FROM Users
@@ -78,13 +75,13 @@ class DbService {
         return runQuery(sql, [firstname, firstname, lastname, lastname]);
     }
 
-    // ---- 4. search by userid -----------------------------------------------------------
+    // search by username
     searchByUsername(username) {
         const sql = `SELECT ${SAFE_COLUMNS} FROM Users WHERE username = ?`;
         return runQuery(sql, [username]);
     }
 
-    // ---- 5. salary between X and Y (a blank bound means "no limit") ---------------------
+    // search by salary range
     searchBySalaryRange(min, max) {
         const sql = `
             SELECT ${SAFE_COLUMNS} FROM Users
@@ -95,7 +92,7 @@ class DbService {
         return runQuery(sql, [min, min, max, max]);
     }
 
-    // ---- 6. age between X and Y --------------------------------------------------------
+    // search by age range
     searchByAgeRange(min, max) {
         const sql = `
             SELECT ${SAFE_COLUMNS} FROM Users
@@ -106,7 +103,7 @@ class DbService {
         return runQuery(sql, [min, min, max, max]);
     }
 
-    // ---- 7. registered after <username> registered -------------------------------------
+    // search users who registered after another user
     searchRegisteredAfter(username) {
         const sql = `
             SELECT ${SAFE_COLUMNS} FROM Users
@@ -116,7 +113,7 @@ class DbService {
         return runQuery(sql, [username]);
     }
 
-    // ---- 8. never signed in ------------------------------------------------------------
+    // search users who never signed in
     searchNeverSignedIn() {
         const sql = `
             SELECT ${SAFE_COLUMNS} FROM Users
@@ -126,7 +123,7 @@ class DbService {
         return runQuery(sql);
     }
 
-    // ---- 9. registered on the same day as <username> (not counting that user) ----------
+    // search users who registered on the same day as another user
     searchSameDay(username) {
         const sql = `
             SELECT ${SAFE_COLUMNS} FROM Users
@@ -137,7 +134,7 @@ class DbService {
         return runQuery(sql, [username, username]);
     }
 
-    // ---- 10. registered today ----------------------------------------------------------
+    // search users who registered today
     searchRegisteredToday() {
         const sql = `
             SELECT ${SAFE_COLUMNS} FROM Users
