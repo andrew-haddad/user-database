@@ -1,4 +1,4 @@
--- Run once in phpMyAdmin / mysql, inside the web_app database.
+-- create Users table in web_app database
 CREATE TABLE IF NOT EXISTS Users(
    username VARCHAR(50) PRIMARY KEY,
    password_hash VARCHAR(255) NOT NULL,  -- bcrypt hash, never the plain password

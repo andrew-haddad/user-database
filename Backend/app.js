@@ -1,6 +1,3 @@
-// Backend: application services, accessible by URIs
-
-
 const express = require('express')
 const cors = require ('cors')
 const dotenv = require('dotenv')
@@ -194,11 +191,7 @@ app.post('/logout', (request, response) => {
     });
 });
 
-// ---------------------------------------------------------------------------
-// Search services (features 3-10). All require a signed-in session and all
-// return { success: true, data: [...] }. Inputs are validated here and then
-// passed to dbService as bound parameters, never glued into SQL text.
-// ---------------------------------------------------------------------------
+// Search routes
 
 function requireAuth(request, response, next) {
     if (!request.session.username) {
@@ -210,12 +203,12 @@ function requireAuth(request, response, next) {
     next();
 }
 
-// Wraps an async handler so any database error becomes a clean 500 response.
+
 function handler(fn) {
     return async (request, response) => {
         try {
             const data = await fn(request, response);
-            // if the handler already sent an error response, do not send a second one
+            // avoids sending second error response if one was already sent
             if (!response.headersSent) {
                 response.json({ success: true, data: data });
             }
@@ -226,13 +219,13 @@ function handler(fn) {
     };
 }
 
-// Blank / missing -> null (meaning "no filter"); otherwise a trimmed string.
+// return null for missing inputs
 function textOrNull(value) {
     if (typeof value !== 'string' || value.trim() === '') return null;
     return value.trim();
 }
 
-// Blank -> null; a valid non-negative number -> number; anything else -> undefined (invalid).
+// convert input to number and check validity
 function numberOrNull(value) {
     if (value === undefined || value === null || String(value).trim() === '') return null;
     const n = Number(value);
@@ -245,7 +238,7 @@ function badRequest(response, message) {
 
 const db = () => dbService.getDbServiceInstance();
 
-// 3. search by first and/or last name
+// search by first and/or last name
 app.get('/search/name', requireAuth, handler(async (request, response) => {
     const firstname = textOrNull(request.query.firstname);
     const lastname = textOrNull(request.query.lastname);
@@ -255,14 +248,14 @@ app.get('/search/name', requireAuth, handler(async (request, response) => {
     return db().searchByName(firstname, lastname);
 }));
 
-// 4. search by userid
+// search by username
 app.get('/search/username', requireAuth, handler(async (request, response) => {
     const username = textOrNull(request.query.username);
     if (username === null) return badRequest(response, 'Enter a username.');
     return db().searchByUsername(username);
 }));
 
-// 5. salary between X and Y
+// search salary between X and Y
 app.get('/search/salary', requireAuth, handler(async (request, response) => {
     const min = numberOrNull(request.query.min);
     const max = numberOrNull(request.query.max);
@@ -276,7 +269,7 @@ app.get('/search/salary', requireAuth, handler(async (request, response) => {
     return db().searchBySalaryRange(min, max);
 }));
 
-// 6. age between X and Y
+// search age between X and Y
 app.get('/search/age', requireAuth, handler(async (request, response) => {
     const min = numberOrNull(request.query.min);
     const max = numberOrNull(request.query.max);
@@ -290,7 +283,7 @@ app.get('/search/age', requireAuth, handler(async (request, response) => {
     return db().searchByAgeRange(min, max);
 }));
 
-// 7. registered after <username> registered
+// search users who registered after <username> registered
 app.get('/search/registered-after', requireAuth, handler(async (request, response) => {
     const username = textOrNull(request.query.username);
     if (username === null) return badRequest(response, 'Enter a username.');
@@ -300,12 +293,12 @@ app.get('/search/registered-after', requireAuth, handler(async (request, respons
     return db().searchRegisteredAfter(username);
 }));
 
-// 8. never signed in
+// search users who never signed in
 app.get('/search/never-signed-in', requireAuth, handler(async () => {
     return db().searchNeverSignedIn();
 }));
 
-// 9. registered on the same day as <username>
+// search users who registered on the same day as <username>
 app.get('/search/same-day', requireAuth, handler(async (request, response) => {
     const username = textOrNull(request.query.username);
     if (username === null) return badRequest(response, 'Enter a username.');
@@ -315,13 +308,12 @@ app.get('/search/same-day', requireAuth, handler(async (request, response) => {
     return db().searchSameDay(username);
 }));
 
-// 10. registered today
+// search users who registered today
 app.get('/search/today', requireAuth, handler(async () => {
     return db().searchRegisteredToday();
 }));
 
 
-// set up the web server listener
 app.listen(process.env.PORT || 5050,
     () => {
         console.log("I am listening on port " + (process.env.PORT || 5050));

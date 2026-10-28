@@ -160,7 +160,7 @@ button:active {
     margin-top: 6px;
 }
 
-/* ---------- dashboard page ---------- */
+/* dashboard */
 
 .home-page {
     max-width: 1000px;
@@ -170,7 +170,6 @@ button:active {
     align-items: start;
 }
 
-/* headings, status text and the results table span the full width */
 .home-page > h1,
 .home-page > h2,
 .home-page > p,
@@ -181,7 +180,7 @@ button:active {
 
 .home-page > #logout-btn {
     justify-self: end;
-    margin-top: -48px; /* sits in the header row, next to the title */
+    margin-top: -48px;
     position: relative;
 }
 
